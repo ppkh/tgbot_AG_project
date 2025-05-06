@@ -116,38 +116,107 @@ async def handle_budget(update, context):
     budget = query.data
     context.user_data['budget'] = budget
 
-    # await selection(update, context)
+    # Отправляем сообщение "Идет поиск подходящей пары..."
+    loading_message = await context.bot.send_message(
+        chat_id=query.message.chat_id,
+        text="Идет поиск подходящей пары..."
+    )
+
+    # Сохраняем message_id для последующего редактирования
+    context.user_data['loading_message_id'] = loading_message.message_id
+
     return STATE_SELECTION
 
 
 async def selection(update, context):
-    query = update.callback_query
-    await query.answer()
     try:
+        # Получаем данные пользователя
+        height_weight = context.user_data['height'] - context.user_data['weight']
         budget = None
+        cushion = None
+        outdoor = None
+        fit = None
+        support = None
+        traction = None
+        materials = None
+
+        # Определяем параметры
         if context.user_data.get('budget') == 'low_budget':
             budget = "price <= 120"
         elif context.user_data.get('budget') == 'mid_budget':
-            budget = "price <= 225"
+            budget = "price <= 180"
         elif context.user_data.get('budget') == 'high_budget':
-            pass
+            budget = "price >= 0"
+        if height_weight >= 100:
+            cushion = "cushion >= 80"
+        elif height_weight < 100:
+            cushion = "cushion >= 90"
+        if context.user_data.get('outdoor') == "indoor":
+            outdoor = "outdoor >= 0"
+            materials = "materials >= 60"
+        elif context.user_data.get('outdoor') == "outdoor" or context.user_data.get('outdoor') == "both":
+            outdoor = "outdoor >= 50"
+            materials = "materials >= 75"
+        if context.user_data.get('position') == '1-2-3':
+            fit = "fit >= 80"
+            traction = "traction >= 85"
+            support = "support >= 75"
+        elif context.user_data.get('position') == '4-5':
+            fit = "fit >= 65"
+            traction = "traction >= 75"
+            support = "support >= 85"
 
+        # Формируем SQL-запрос
+        conditions = []
+        if budget:
+            conditions.append(budget)
+        if cushion:
+            conditions.append(cushion)
+        if outdoor:
+            conditions.append(outdoor)
+        if fit:
+            conditions.append(fit)
+        if support:
+            conditions.append(support)
+        if traction:
+            conditions.append(traction)
+        if materials:
+            conditions.append(materials)
+
+        query = " AND ".join(conditions)
+        logger.info(f"Executing SQL query: SELECT name, price FROM sneakers WHERE {query}")
+
+        # Подключаемся к базе данных
         con = sqlite3.connect('kicks.db')
         cur = con.cursor()
-        cur.execute(f"SELECT name, price FROM sneakers WHERE {budget}")
+        cur.execute(f"SELECT name, price FROM sneakers WHERE {query}")
         results = cur.fetchall()
-        await query.message.reply_text("Идет поиск подходящей пары...")
+
+        # Формируем ответ
         if results:
             response = "Рекомендуемые кроссовки:\n"
             for name, price in results:
                 response += f"- {name} ({price} $)\n"
         else:
             response = "К сожалению, подходящих кроссовок не найдено."
-        await query.edit_message_text(response)
+
+        # Изменяем сообщение "Идет поиск подходящей пары..."
+        loading_message_id = context.user_data.get('loading_message_id')
+        chat_id = update.callback_query.message.chat_id
+        await context.bot.edit_message_text(
+            chat_id=chat_id,
+            message_id=loading_message_id,
+            text=response
+        )
+
         con.close()
     except Exception as e:
         logger.error(f"Ошибка при работе с базой данных: {e}")
-        await query.edit_message_text("Произошла ошибка. Приносим извинения.")
+        await context.bot.edit_message_text(
+            chat_id=update.callback_query.message.chat_id,
+            message_id=context.user_data.get('loading_message_id'),
+            text=f"Произошла ошибка: {str(e)}. Приносим извинения."
+        )
 
     return ConversationHandler.END
 

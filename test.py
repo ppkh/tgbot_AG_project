@@ -131,18 +131,65 @@ async def handle_budget(update, context):
 async def selection(update, context):
     try:
         # Получаем данные пользователя
+        height_weight = context.user_data['height'] - context.user_data['weight']
         budget = None
+        cushion = None
+        outdoor = None
+        fit = None
+        support = None
+        traction = None
+        materials = None
+
+        # Определяем параметры
         if context.user_data.get('budget') == 'low_budget':
             budget = "price <= 120"
         elif context.user_data.get('budget') == 'mid_budget':
-            budget = "price <= 225"
+            budget = "price <= 180"
         elif context.user_data.get('budget') == 'high_budget':
-            pass
+            budget = "price >= 0"
+        if height_weight >= 100:
+            cushion = "cushion >= 80"
+        elif height_weight < 100:
+            cushion = "cushion >= 90"
+        if context.user_data.get('outdoor') == "indoor":
+            outdoor = "outdoor >= 0"
+            materials = "materials >= 60"
+        elif context.user_data.get('outdoor') == "outdoor" or context.user_data.get('outdoor') == "both":
+            outdoor = "outdoor >= 50"
+            materials = "materials >= 75"
+        if context.user_data.get('position') == '1-2-3':
+            fit = "fit >= 80"
+            traction = "traction >= 85"
+            support = "support >= 75"
+        elif context.user_data.get('position') == '4-5':
+            fit = "fit >= 65"
+            traction = "traction >= 75"
+            support = "support >= 85"
+
+        # Формируем SQL-запрос
+        conditions = []
+        if budget:
+            conditions.append(budget)
+        if cushion:
+            conditions.append(cushion)
+        if outdoor:
+            conditions.append(outdoor)
+        if fit:
+            conditions.append(fit)
+        if support:
+            conditions.append(support)
+        if traction:
+            conditions.append(traction)
+        if materials:
+            conditions.append(materials)
+
+        query = " AND ".join(conditions)
+        logger.info(f"Executing SQL query: SELECT name, price FROM sneakers WHERE {query}")
 
         # Подключаемся к базе данных
         con = sqlite3.connect('kicks.db')
         cur = con.cursor()
-        cur.execute(f"SELECT name, price FROM sneakers WHERE {budget}")
+        cur.execute(f"SELECT name, price FROM sneakers WHERE {query}")
         results = cur.fetchall()
 
         # Формируем ответ
@@ -168,7 +215,7 @@ async def selection(update, context):
         await context.bot.edit_message_text(
             chat_id=update.callback_query.message.chat_id,
             message_id=context.user_data.get('loading_message_id'),
-            text="Произошла ошибка. Приносим извинения."
+            text=f"Произошла ошибка: {str(e)}. Приносим извинения."
         )
 
     return ConversationHandler.END
