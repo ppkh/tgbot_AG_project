@@ -8,8 +8,10 @@ from telegram.ext import (
     filters
 )
 import logging
-from config import BOT_TOKEN
+
 import sqlite3
+
+BOT_TOKEN = "7897080745:AAGy8O_1DCwAq34OFGzQ6hJfewHHqA7c_yg"
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -17,6 +19,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Состояния диалога
 STATE_ASK_HEIGHT_WEIGHT = 1
 STATE_ASK_OUTDOOR = 2
 STATE_ASK_POSITION1 = 3
@@ -117,19 +120,16 @@ async def handle_budget(update, context):
     context.user_data['budget'] = budget
 
     # Отправляем сообщение "Идет поиск подходящей пары..."
-    loading_message = await context.bot.send_message(
-        chat_id=query.message.chat_id,
-        text="Идет поиск подходящей пары..."
-    )
 
-    # Сохраняем message_id для последующего редактирования
-    context.user_data['loading_message_id'] = loading_message.message_id
-
+    # Немедленно возвращаем следующее состояние
     return STATE_SELECTION
 
 
 async def selection(update, context):
     try:
+        await context.bot.send_message(
+            text="Идет поиск подходящей пары..."
+        )
         # Получаем данные пользователя
         height_weight = context.user_data['height'] - context.user_data['weight']
         budget = None
@@ -147,24 +147,13 @@ async def selection(update, context):
             budget = "price <= 180"
         elif context.user_data.get('budget') == 'high_budget':
             budget = "price >= 0"
-        if height_weight >= 100:
-            cushion = "cushion >= 80"
-        elif height_weight < 100:
-            cushion = "cushion >= 90"
-        if context.user_data.get('outdoor') == "indoor":
-            outdoor = "outdoor >= 0"
-            materials = "materials >= 60"
-        elif context.user_data.get('outdoor') == "outdoor" or context.user_data.get('outdoor') == "both":
-            outdoor = "outdoor >= 50"
-            materials = "materials >= 75"
-        if context.user_data.get('position') == '1-2-3':
-            fit = "fit >= 80"
-            traction = "traction >= 85"
-            support = "support >= 75"
-        elif context.user_data.get('position') == '4-5':
-            fit = "fit >= 65"
-            traction = "traction >= 75"
-            support = "support >= 85"
+
+        cushion = "cushion >= 80" if height_weight >= 100 else "cushion >= 90"
+        outdoor = "outdoor >= 0" if context.user_data['outdoor'] == "indoor" else "outdoor >= 50"
+        materials = "materials >= 60" if context.user_data['outdoor'] == "indoor" else "materials >= 75"
+        fit = "fit >= 80" if context.user_data['position'] == '1-2-3' else "fit >= 65"
+        support = "support >= 75" if context.user_data['position'] == '1-2-3' else "support >= 85"
+        traction = "traction >= 85" if context.user_data['position'] == '1-2-3' else "traction >= 75"
 
         # Формируем SQL-запрос
         conditions = []
@@ -204,8 +193,6 @@ async def selection(update, context):
         loading_message_id = context.user_data.get('loading_message_id')
         chat_id = update.callback_query.message.chat_id
         await context.bot.edit_message_text(
-            chat_id=chat_id,
-            message_id=loading_message_id,
             text=response
         )
 
