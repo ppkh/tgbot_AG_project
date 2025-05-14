@@ -8,7 +8,7 @@ from telegram.ext import (
     filters
 )
 import logging
-from config import BOT_TOKEN
+import config
 import sqlite3
 
 logging.basicConfig(
@@ -242,7 +242,7 @@ async def stop(update, context):
 
 # Основная функция
 def main():
-    application = Application.builder().token(BOT_TOKEN).build()
+    application = Application.builder().token(config.BOT_TOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(start_selection)],
