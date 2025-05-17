@@ -10,7 +10,7 @@ from telegram.ext import (
 import logging
 import sqlite3
 
-BOT_TOKEN = "7897080745:AAGy8O_1DCwAq34OFGzQ6hJfewHHqA7c_yg"
+BOT_TOKEN = "7897080745:AAEhOZz-1Tkl02Tux0JJLqYQjUY3sBJXn-Q"
 
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -180,13 +180,11 @@ async def selection(update, context):
         query = " AND ".join(conditions)
         logger.info(f"Executing SQL query: SELECT name, price FROM sneakers WHERE {query}")
 
-        # Подключаемся к базе данных
         con = sqlite3.connect('kicks.db')
         cur = con.cursor()
         cur.execute(f"SELECT name, price FROM sneakers WHERE {query}")
         results = cur.fetchall()
 
-        # Формируем ответ
         if results:
             response = "Рекомендуемые кроссовки:\n"
             for name, price in results:

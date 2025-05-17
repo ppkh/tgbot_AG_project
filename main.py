@@ -24,7 +24,6 @@ STATE_ASK_BUDGET = 4
 STATE_SELECTION = 5
 
 
-# Команда /start
 async def start(update, context):
     button = InlineKeyboardButton(text='Начнем подбор!', callback_data='start_selection')
     keyboard = InlineKeyboardMarkup([[button]])
@@ -46,7 +45,6 @@ async def start_selection(update, context):
         return STATE_ASK_HEIGHT_WEIGHT
 
 
-# Обработка ввода роста и веса
 async def ask_height_weight(update, context):
     data = update.message.text
     try:
@@ -116,13 +114,11 @@ async def handle_budget(update, context):
     budget = query.data
     context.user_data['budget'] = budget
 
-    # Отправляем сообщение "Идет поиск подходящей пары..."
     loading_message = await context.bot.send_message(
         chat_id=query.message.chat_id,
         text="Идет поиск подходящей пары..."
     )
 
-    # Сохраняем message_id для последующего редактирования
     context.user_data['loading_message_id'] = loading_message.message_id
 
     return STATE_SELECTION
@@ -130,7 +126,6 @@ async def handle_budget(update, context):
 
 async def selection(update, context):
     try:
-        # Получаем данные пользователя
         height_weight = context.user_data['height'] - context.user_data['weight']
         budget = None
         cushion = None
@@ -140,7 +135,6 @@ async def selection(update, context):
         traction = None
         materials = None
 
-        # Определяем параметры
         if context.user_data.get('budget') == 'low_budget':
             budget = "price <= 120"
         elif context.user_data.get('budget') == 'mid_budget':
@@ -166,7 +160,6 @@ async def selection(update, context):
             traction = "traction >= 75"
             support = "support >= 85"
 
-        # Формируем SQL-запрос
         conditions = []
         if budget:
             conditions.append(budget)
@@ -186,13 +179,11 @@ async def selection(update, context):
         query = " AND ".join(conditions)
         logger.info(f"Executing SQL query: SELECT name, price FROM sneakers WHERE {query}")
 
-        # Подключаемся к базе данных
         con = sqlite3.connect('kicks.db')
         cur = con.cursor()
         cur.execute(f"SELECT name, price FROM sneakers WHERE {query}")
         results = cur.fetchall()
 
-        # Формируем ответ
         if results:
             response = "Рекомендуемые кроссовки:\n"
             for name, price in results:
@@ -200,7 +191,6 @@ async def selection(update, context):
         else:
             response = "К сожалению, подходящих кроссовок не найдено."
 
-        # Изменяем сообщение "Идет поиск подходящей пары..."
         loading_message_id = context.user_data.get('loading_message_id')
         chat_id = update.callback_query.message.chat_id
         await context.bot.edit_message_text(
@@ -234,7 +224,6 @@ async def help_command(update, context):
     await update.message.reply_text(help_text)
 
 
-# Команда /stop
 async def stop(update, context):
     await update.message.reply_text("Подбор был прерван.")
     return ConversationHandler.END
